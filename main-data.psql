@@ -1,0 +1,156 @@
+
+-- Librarian table
+CREATE TABLE IF NOT EXISTS librarian (
+    id INT PRIMARY KEY NOT NULL,
+    name VARCHAR(250) NOT NULL,
+    email VARCHAR(40) NOT NULL,
+    date_of_birth DATE NOT NULL,
+    phone_number BIGINT NOT NULL,  -- Change data type to BIGINT
+    department VARCHAR(20) NOT NULL
+);
+
+-- Library table
+CREATE TABLE IF NOT EXISTS library (
+    id SERIAL PRIMARY KEY NOT NULL,
+    name VARCHAR(250) NOT NULL,
+    email VARCHAR(250) NOT NULL,
+    address VARCHAR(40) NOT NULL,
+    phone_number VARCHAR(40) NOT NULL
+);
+
+-- Loan Transaction table
+CREATE TABLE IF NOT EXISTS loan_transaction (
+    id SERIAL PRIMARY KEY NOT NULL,
+    library_id INT NOT NULL,
+    customer_id INT NOT NULL,
+    due_date DATE NOT NULL,
+    returned BOOLEAN NOT NULL,
+    book_id INT NOT NULL
+);
+
+
+
+-- Insert data into librarian table
+INSERT INTO librarian (id, name, email, date_of_birth, phone_number, department)
+VALUES
+    (1, 'Emily Brown', 'emily.brown@email.com', '1980-05-15', 5556667777, 'Cataloging'),
+    (2, 'David Wilson', 'david.wilson@email.com', '1975-11-28', 8887776666, 'Reference'),
+    (3, 'Olivia Miller', 'olivia.miller@email.com', '1982-09-02', 3334445555, 'Children'),
+    (4, 'Daniel Harris', 'daniel.harris@email.com', '1978-03-12', 7778889999, 'Circulation'),
+    (5, 'Sophia Taylor', 'sophia.taylor@email.com', '1985-07-24', 4445556666, 'Acquisitions');
+
+-- Insert data into library table
+INSERT INTO library (name, email, address, phone_number)
+VALUES
+    ('City Central Library', 'info@citylibrary.com', '123 Main St, Cityville', '555-1234'),
+    ('County Library', 'info@countylibrary.com', '456 Oak Ave, Countytown', '555-5678'),
+    ('Township Public Library', 'info@townshiplibrary.com', '789 Pine Rd, Townsville', '555-9876'),
+    ('Community Library', 'info@communitylibrary.com', '101 Elm Blvd, Community City', '555-4321'),
+    ('Regional Library', 'info@regionallibrary.com', '202 Cedar Ln, Regionville', '555-8765');
+
+-- Insert data into loan_transaction table
+INSERT INTO loan_transaction (library_id, customer_id, due_date, returned, book_id)
+VALUES
+    (1, 1, '2024-02-10', FALSE, 1),
+    (2, 2, '2024-02-15', FALSE, 2),
+    (3, 3, '2024-02-20', TRUE, 3),
+    (4, 4, '2024-02-25', FALSE, 4),
+    (5, 5, '2024-03-01', TRUE, 5);
+
+
+
+-- Data Wrapper
+-- Install data wrapper
+CREATE EXTENSION IF NOT EXISTS mysql_fdw;
+
+
+-- MySQL Server
+CREATE SERVER IF NOT EXISTS mysql_server
+FOREIGN DATA WRAPPER mysql_fdw
+OPTIONS (host 'ddbms-site_3-1', port '3306');
+
+-- User Mapping for PostgreSQL
+CREATE USER MAPPING IF NOT EXISTS FOR postgres
+SERVER mysql_server
+OPTIONS (username 'site3', password 'site3');
+
+
+-- MSSQL Server
+CREATE EXTENSION IF NOT EXISTS tds_fdw;
+CREATE SERVER IF NOT EXISTS mssql_svr
+FOREIGN DATA WRAPPER tds_fdw
+OPTIONS (servername 'ddbms-site_2-1', port '1433', database 'tempdb');
+
+-- User Mapping for PostgreSQL
+CREATE USER MAPPING IF NOT EXISTS FOR postgres
+SERVER mssql_svr
+OPTIONS (username 'sa', password 'Ver1C0mp1exPWd');
+
+
+
+---------------BOOK TABLE RECONSTRUCTION-------------
+-- Fragment 1
+CREATE FOREIGN TABLE book_fragment1 (
+    id INT,
+    author VARCHAR(40),
+    date_published DATE
+) SERVER mysql_server OPTIONS (dbname 'site3', table_name 'book');
+
+-- Fragment 2
+CREATE FOREIGN TABLE book_fragment2 (
+    id INT,
+    isbn VARCHAR(250),
+    title VARCHAR(40)
+) SERVER mssql_svr OPTIONS (table_name 'book');
+
+
+---------------CUSTOMER TABLE RECONSTRUCTION-------------
+-- Fragment 1
+CREATE FOREIGN TABLE customer_fragment1 (
+    id INT,
+    name TEXT,
+    email VARCHAR(40),
+    date_added DATE,
+    phone_number BIGINT,
+    address VARCHAR(20)
+) SERVER mysql_server OPTIONS (dbname 'site3', table_name 'customer');
+
+-- Fragment 2
+CREATE FOREIGN TABLE customer_fragment2 (
+    id INT,
+    name TEXT,
+    email VARCHAR(40),
+    date_added VARCHAR(40),  -- Keep this as VARCHAR
+    phone_number BIGINT,
+    address VARCHAR(20)
+) SERVER mssql_svr OPTIONS (table_name 'customer');
+
+
+
+-------------------CUSTOMER VIEW------------------
+
+CREATE VIEW customer AS
+SELECT
+    id,
+    name,
+    email,
+    date_added::VARCHAR(40) AS date_added,  -- Explicitly cast to VARCHAR(40)
+    phone_number,
+    address
+FROM customer_fragment1
+UNION ALL
+SELECT * FROM customer_fragment2;
+
+-------------------BOOK VIEW------------------
+
+CREATE VIEW book AS
+SELECT
+    f1.id,
+    f1.author,
+    f1.date_published::VARCHAR(40) AS date_published,
+    f2.isbn,
+    f2.title
+FROM book_fragment1 f1
+JOIN book_fragment2 f2 ON f1.id = f2.id;
+
+

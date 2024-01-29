@@ -1,0 +1,22 @@
+FROM postgres:16
+
+# Install git, make, libpq, libmysqlclient, and build-essential
+RUN apt-get update && \
+    apt-get install -y git make libpq-dev default-libmysqlclient-dev build-essential libsybdb5 freetds-dev freetds-common gnupg postgresql-server-dev-16 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Clone and build tds_fdw
+RUN git clone https://github.com/tds-fdw/tds_fdw.git && \
+    cd tds_fdw && \
+    make USE_PGXS=1 && \
+    make USE_PGXS=1 install && \
+    cd .. && \
+    rm -rf tds_fdw
+
+# Clone and build mysql_fdw
+RUN git clone https://github.com/enterprisedb/mysql_fdw.git && \
+    cd mysql_fdw && \
+    make USE_PGXS=1 && \
+    make USE_PGXS=1 install && \
+    cd .. && \
+    rm -rf mysql_fdw
