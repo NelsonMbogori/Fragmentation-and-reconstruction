@@ -6,7 +6,7 @@ spinning up the containers
 
 runiing the data scripts
 mssql
-```sudo docker cp /home/nelson/UON/ddbms/site-2.sql <cont-id>:/home/```
+```sudo docker cp /path/to/site-2.sql:/home/```
 
  ```docker exec -it <cont-id> /opt/mssql-tools/bin/sqlcmd -S localhost -d tempdb -U sa -P Ver1C0mp1exPWd -i /home/site-2.sql```
 
